@@ -41,7 +41,25 @@ int execute_command(const vector<string> &args)
   if(args.empty())
   return 1;
 
-  // will add some builtin commands for the shell 
+  // will add some more builtin commands for the shell 
+  if(args[0]=="cd")
+  {
+    if(args.size()<2)
+    {
+        cerr << "cd: expected argument\n";
+    }
+    else{
+        if (chdir(args[1].c_str()) != 0) {
+                perror("cd");
+            }
+    }
+    return 0;  // if you don't add return 0, command will be executed but it will throw an error-> exec: No such file or directory
+  }
+  
+  if(args[0]=="exit")
+  {
+    return 0;
+  }
 
   // using fork and exec to execute external commands 
   pid_t pid=fork();
@@ -85,6 +103,10 @@ void shell_loop()
     args=parsing_string(line);
     status= execute_command(args); 
     // cout<<status<<"\n";
+    if(args[0]=="exit")
+    {
+        break;
+    }
   } while (true);         // we can use `status` but after successful execution of the command, it will go off  
 }
 
