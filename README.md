@@ -6,4 +6,8 @@ A custom shell implementation written in C++
 - Basic Command Execution
 - Piping (`|`) support
 - Command history
+----
+
+- Many more features need to be added :) 
+
 
