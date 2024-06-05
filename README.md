@@ -5,9 +5,7 @@ A custom shell implementation written in C++
 
 - Basic Command Execution
 - Piping (`|`) support
+- Input/Output Redirection
 - Command history
-----
-
-- Many more features need to be added :) 
 
 

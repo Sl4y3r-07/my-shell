@@ -3,11 +3,18 @@
 #include <vector>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 using namespace std;
 
 vector<string> history;
 string line;
+
+string input_file;
+string output_file;
+bool input_redirect=false;
+bool output_redirect=false;
+bool append_output=false;
 
 string read_line()
 { 
@@ -20,19 +27,52 @@ vector<string> parsing_string(const string &line)
 {
     vector<string> args;
     string arg;
-    for (char ch : line) {
-        if (ch == ' ') {
+   bool input_redirect=false;
+   bool output_redirect=false;
+   bool append_output=false;
+    for (size_t i = 0; i < line.length(); ++i) {
+        if (line[i] == ' ') {
+            if (!arg.empty()) {
+                if (input_redirect) {
+                    input_file = arg;
+                    input_redirect = false;
+                } else if (output_redirect) {
+                    output_file = arg;
+                    output_redirect = false;
+                } else {
+                    args.push_back(arg);
+                }
+                arg.clear();
+            }
+        } else if (line[i] == '<') {
+            input_redirect = true;
+            if (!arg.empty()) {
+                args.push_back(arg);
+                arg.clear();
+            }
+        } else if (line[i] == '>') {
+            output_redirect = true;
+            if (i + 1 < line.length() && line[i + 1] == '>') {
+                append_output = true;
+                ++i;  
+            }
             if (!arg.empty()) {
                 args.push_back(arg);
                 arg.clear();
             }
         } else {
-            arg += ch;
+            arg += line[i];
         }
     }
-    
+
     if (!arg.empty()) {
-        args.push_back(arg);
+        if (input_redirect) {
+           input_file = arg;
+        } else if (output_redirect) {
+            output_file = arg;
+        } else {
+            args.push_back(arg);
+        }
     }
     return args;
 }
@@ -56,6 +96,9 @@ vector<string> split_pipe(const string &line)
  commands.push_back(command);
  return commands;
 }
+
+
+
 
 
 int without_pipe_execute_command(const vector<string> &args)
@@ -98,6 +141,44 @@ int without_pipe_execute_command(const vector<string> &args)
   pid_t pid=fork();
   if(pid==0)       // because fork returns 0 to the child process
   {           
+    // for input redirection
+    if(!input_file.empty())
+    {
+        int fd= open(input_file.c_str(), O_RDONLY);
+        if(fd==-1)
+        {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
+        if (dup2(fd, STDIN_FILENO) == -1) {
+                perror("dup2");
+                close(fd);
+                exit(EXIT_FAILURE);
+            }
+            close(fd);
+    }
+   // for output redirection
+   if(!output_file.empty())
+   {
+    int fd;
+    if(append_output==true)
+    {
+        fd= open(output_file.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+    }
+    else{
+        fd=open(output_file.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    }
+     if (fd == -1) {
+                perror("open");
+                exit(EXIT_FAILURE);
+            }
+            if (dup2(fd, STDOUT_FILENO) == -1) {
+                perror("dup2");
+                close(fd);
+                exit(EXIT_FAILURE);
+            }
+    close(fd);
+   }
      vector<char *> cargs;
         for (const auto &arg : args) {
             cargs.push_back(const_cast<char *>(arg.c_str()));
@@ -143,6 +224,7 @@ int with_pipe_execute_command(const vector<string> &commands) // with pipe
         }
     }
 
+
     for(int i=0;i<commands.size();i++)
     {
         pid_t pid= fork();
@@ -170,6 +252,7 @@ int with_pipe_execute_command(const vector<string> &commands) // with pipe
             }
 
             vector<string> args = parsing_string(commands[i]);  // same normal logic
+            
             vector<char *> cargs;
             for (const auto &arg : args) {
                 cargs.push_back(const_cast<char *>(arg.c_str()));
@@ -239,7 +322,8 @@ void shell_loop()
     history.push_back(line);  // to save the history
     args=parsing_string(line);
     status= execute_command(args); 
-    // cout<<status<<"\n";
+    input_file.clear();
+    output_file.clear();
     if(args[0]=="exit")
     {
         break;
