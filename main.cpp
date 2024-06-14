@@ -4,6 +4,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 using namespace std;
 
@@ -16,11 +18,18 @@ bool input_redirect=false;
 bool output_redirect=false;
 bool append_output=false;
 
-string read_line()
-{ 
-    string line_;
-    getline(cin, line_);
-    return line_;   
+
+string read_line() {
+    char *line = readline("my-sh > ");
+    if (line) {
+        if (*line) {
+            add_history(line);
+        }
+        string line_(line);
+        free(line);
+        return line_;
+    }
+    return "";
 }
 
 vector<string> parsing_string(const string &line)
@@ -308,12 +317,12 @@ int execute_command(const vector<string> &args)
 void shell_loop()
 {  
   
+  
   vector<string> args;
   
   int status;
   do
   {
-    cout<<"my-sh > ";
     line=read_line();
     if(line.empty())
     {
